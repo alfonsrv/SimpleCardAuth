@@ -17,7 +17,7 @@ sudo modprobe -r nfc
 sudo apt-get install libssl-dev
 sudo apt-get install libreadline-dev
 
-sudo apt-get install coolkey pcscd pcsc-tools pkg-config libpam-pkcs11 opensc libengine-pkcs11-openssl
+sudo apt-get install coolkey pcscd pcsc-tools pkg-config libpam-pkcs11 opensc libengine-pkcs11-openssl libssl1.0-dev
 
 sudo apt-get install sqlite3
 

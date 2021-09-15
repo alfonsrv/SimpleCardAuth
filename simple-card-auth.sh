@@ -138,7 +138,7 @@ cleanup
 dd if="$RAND_FILE" of="$CHAL_FILE" bs=32 count=1 2> "$STDERR" || die
 
 # Calculate the hash of the challenge
-openssl sha -sha256 -binary < "$CHAL_FILE" > "$CHALHASH_FILE" || die
+openssl sha256 -sha256 -binary < "$CHAL_FILE" > "$CHALHASH_FILE" || die
 
 # Get Serial
 opensc-tool -w --send-apdu FFCA000000 --send-apdu 00:a4:04:00:09:a0:00:00:03:08:00:00:10:00 --send-apdu 00:cb:3f:ff:05:5C:03:5f:C1:02 2> $STDERR > "$SERIAL_FILE" || die

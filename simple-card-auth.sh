@@ -54,8 +54,11 @@ die() {
 # Main routine - initialize everything
 cleanup
 
+# Remove temporary files upon restart; not doing it at the end
+# to give an opportunity of submitting them to the backend
 mkdir -p $CACHE_DIR
-# Calculate a challenge
+
+# Calculate a challenge to verify presented card has private key
 dd if="$RAND_FILE" of="$CHAL_FILE" bs=32 count=1 2> "$STDERR" || die
 
 # Calculate the hash of the challenge

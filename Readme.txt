@@ -37,3 +37,8 @@ sudo apt-get install libqt4-core libqt4-gui
 sudo apt-get install libqt4-dev
 2. download XCA according to http://xca.hohnstaedt.de/index.php/download
 3. sudo ./configure; make -j6; sudo make install
+
+
+---
+
+Simply install OpenSC

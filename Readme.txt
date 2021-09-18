@@ -28,4 +28,24 @@ Simply install OpenSC
 	"getuid":[0xFF, 0xCA, 0x00, 0x00, 0x00],
 	"firmver":[0xFF, 0x00, 0x48, 0x00, 0x00],
 
+sudo pcscd --apdu --foreground --info
+sudo pcscd --foreground --error
+
+./uhubctl -a 1 -p 1-4 -l 1-1 -r 2
+pidof pcscd | xargs kill -9
 Reader Reset https://github.com/mvp/uhubctl
+
+# pcscd
+00159237 ccid_usb.c:898:ReadUSB() read failed (1/5): -7 LIBUSB_ERROR_TIMEOUT                                                                                                                                                                                                                                  
+00058316 ccid_usb.c:920:ReadUSB() Duplicate frame detected                                                             
+00100296 ccid_usb.c:898:ReadUSB() read failed (1/5): -7 LIBUSB_ERROR_TIMEOUT
+00000579 readerfactory.c:1106:RFInitializeReader() Open Port 0x200000 Failed (usb:072f/2200:libudev:0:/dev/bus/usb/001/005)
+00001099 hotplug_libudev.c:523:HPAddDevice() Failed adding USB device: ACS ACR122U PICC Interface
+
+# STDERR
+Waiting for a reader to be attached...
+Error while waiting for a reader: No readers found
+
+
+# pcscd
+Card inserted into ACS ACR122U PICC

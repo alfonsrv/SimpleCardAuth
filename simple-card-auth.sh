@@ -4,12 +4,12 @@ export OPENSC_CONF=`pwd`/opensc.conf
 CACHE_DIR="$PWD/cache"
 CHAL_FILE="$CACHE_DIR/chal.tmp"
 CHALHASH_FILE="$CACHE_DIR/chalhash.tmp"
+TMP_FILE="$CACHE_DIR/temporary.tmp"
 
-CERT_FILE="$CACHE_DIR/cert.pem"
+CERT_FILE="$CACHE_DIR/cert.pem"  # Important File 1
+SERIAL_FILE="$CACHE_DIR/serial.tmp"  # Important File 2
 PUB_KEY_FILE="$CACHE_DIR/pub_key.pem"
 SIG_FILE="$CACHE_DIR/sig.tmp"
-SERIAL_FILE="$CACHE_DIR/serial.tmp"
-TMP_FILE="$CACHE_DIR/temporary.tmp"
 
 # Where to look for PIV Certificate.
 # Slot 4 is used for pure Authentication
@@ -39,14 +39,14 @@ cleanup() {
 	rm -rf $CACHE_DIR 2> /dev/null
 }
 
-die(exit_code) {
+die() {
 	# Helper function to halt execution if one of our instructions exited unsuccessfully
 	grep -v -e "Sending" -e "Receiv" "$SERIAL_FILE" | tail -n 1 2> "$STDERR"
 
 	[ "0$DEBUG" -lt 1 ] && cleanup
 
 	echo died
-	exit exit_code
+	exit ${1:-9}
 }
 
 
@@ -70,39 +70,42 @@ openssl sha256 -sha256 -binary < "$CHAL_FILE" > "$CHALHASH_FILE" || die
 # Read Yubikey S/N 00:f8:00:00
 # https://docs.yubico.com/yesdk/users-manual/application-piv/apdu/get-data.html
 # https://docs.yubico.com/yesdk/users-manual/application-piv/apdu/metadata.html
-opensc-tool -w --send-apdu FFCA000000 --send-apdu 00:a4:04:00:09:a0:00:00:03:08:00:00:10:00 --send-apdu 00:f8:00:00  2> $STDERR > $TMP_FILE || die(6)
+opensc-tool -w --send-apdu FF:00:52:00:00 --send-apdu 00:a4:04:00:09:a0:00:00:03:08:00:00:10:00 --send-apdu 00:f8:00:00  2> $STDERR > $TMP_FILE || die 1
 # cat $SERIAL_FILE | openssl sha1 | cut -d ' ' -f 2 > $SERIAL_FILE
+[ -f $TMP_FILE ] || die
+
+echo "Initial card check passed; checking..."
 
 # Yubikey Serial Number to Decimal
 grep -v -e "Sending" -e "Receiv" $TMP_FILE | tail -n 1 | grep -Pzo '([A-Z0-9]{2})' | (read hex; echo $(( 0x${hex} ))) > $SERIAL_FILE
 
 # Export Certificate
-pkcs15-tool $PKCS15_CRYPT_FLAGS -L --read-certificate "$KEY_ID" -o "$CERT_FILE" > "$STDERR" 2> "$STDERR" || die(7)
+pkcs15-tool $PKCS15_CRYPT_FLAGS -L --read-certificate "$KEY_ID" -o "$CERT_FILE" > "$STDERR" 2> "$STDERR" || die
 
 # Check Certificate Expiry - this is also done in verify, but this gives us the ability to log the event better
-openssl x509 -checkend 86400 -noout -in $CERT_FILE || die(3)
+openssl x509 -checkend 86400 -noout -in $CERT_FILE || die 4
 
 # Verify the certificate (no CRL check is made, due to looking up users' activation status in LDAP)
 # openssl verify -verbose -x509_strict -crl_check -CAfile ca.crt cert.pem
-openssl verify -x509_strict -CAfile ca.crt -verbose -purpose sslclient $CERT_FILE > $TMP_FILE || die(1)
+openssl verify -x509_strict -CAfile ca.crt -verbose -purpose sslclient $CERT_FILE > $TMP_FILE || die 1
 
 # Calculate the response for the challenge
-pkcs15-crypt $PKCS15_CRYPT_FLAGS -s -k $KEY_ID --sha-256 --pkcs1 -i $CHALHASH_FILE -o $SIG_FILE 2> $STDERR || die(2)
+pkcs15-crypt $PKCS15_CRYPT_FLAGS -s -k $KEY_ID --sha-256 --pkcs1 -i $CHALHASH_FILE -o $SIG_FILE 2> $STDERR || die 3
 
 # The openssl verify command is very lenient when it comes to
 # self-signed certificates. This is an obvious security hole in this
 # use case. The following check makes sure that if there is anything
 # except perfect verification that we fail.
-[ $STRICT_CHECK = 1 ] && [ "`cat $TMP_FILE`" '!=' "$CERT_FILE: OK" ] && die(2)
+[ $STRICT_CHECK = 1 ] && [ "`cat $TMP_FILE`" '!=' "$CERT_FILE: OK" ] && die 3
 
 # Extract the public key
-openssl x509 -pubkey -noout -in $CERT_FILE > $PUB_KEY_FILE || die(2)
+openssl x509 -pubkey -noout -in $CERT_FILE > $PUB_KEY_FILE || die 3
 
 # Verify the response
-openssl dgst -sha256 -verify $PUB_KEY_FILE -signature $SIG_FILE $CHAL_FILE 2>&1 > $STDERR || die(2)
+openssl dgst -sha256 -verify $PUB_KEY_FILE -signature $SIG_FILE $CHAL_FILE 2>&1 > $STDERR || die 3
 
 # Save subject CN
-openssl x509 -in $CERT_FILE -nameopt RFC2253 -noout -subject | sed 's/subject=//' > $SUBJECT_DN_FILE || die(7)
+# openssl x509 -in $CERT_FILE -nameopt RFC2253 -noout -subject | sed 's/subject=//' > $SUBJECT_DN_FILE || die
 
 echo success
 exit 0
